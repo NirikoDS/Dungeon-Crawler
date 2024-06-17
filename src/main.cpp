@@ -4,7 +4,36 @@
 #include <iostream>     // library for input output
 #include <stdlib.h>     // library for rand() 
 #include <time.h>       // library for time()
+#include <string>
 
+class Monster {
+    protected:
+        std::string name;
+        int health;
+        int attack;
+        int defense;
+        int speed;
+    
+    public:
+        Texture image;
+        
+        Monster(std::string _name, int _health, int _attack, int _defense, int _speed, Texture _image)
+            : name(_name), health(_health), attack(_attack), defense(_defense), speed(_speed), image(_image) {}
+
+        void Draw(float deltaMonster, float pos) {
+            DrawTextureEx(image, (Vector2){pos, (float)(GetScreenHeight()/3 - image.height/4)}, 0.0f, 1.0f, WHITE);
+        }
+};
+
+class Slime : public Monster {
+    public:
+        Slime() : Monster("Slime", 10, 5, 5, 5, LoadTexture("resources/slime.png")) {}
+};
+
+class Calabaza : public Monster {
+    public:
+        Calabaza() : Monster("Calabaza", 20, 7, 8, 3, LoadTexture("resources/calabaza.png")) {}
+};
 
 // definition of constants
 #define BLOCK_SIZE 1.0f     // Size of Block
@@ -14,8 +43,8 @@
 #define SKY (Color){187,234,244} // Color of the background
 
 // Range till encounter
-#define ENCOUNTER_MIN 7
-#define ENCOUNTER_MAX 10
+#define ENCOUNTER_MIN 1
+#define ENCOUNTER_MAX 1
 
 // Función para calcular la diferencia mínima entre dos ángulos
 float AngleDifference(float target, float current) {
@@ -51,6 +80,91 @@ Vector3 operator+(const Vector3& v1, const Vector3& v2) {
     return (Vector3){v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
+struct Encounter{
+        int monsterNumber;
+        Monster* monsters[5];
+        int type;
+    };
+    
+void DrawEncounter(Encounter* encounter, Camera camera, float deltaMonster)  {
+    switch(encounter->type){ 
+        case 0: {  
+            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width/2 - encounter->monsters[0]->image.width - 20);
+            encounter->monsters[1]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[1]->image.width/2);
+            encounter->monsters[2]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[2]->image.width/2 + encounter->monsters[2]->image.width + 20);
+            break;
+        }
+
+        case 1: {  
+            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width/2);
+            break;
+        }
+
+        case 2: {  
+            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width - 10);
+            encounter->monsters[1]->Draw(deltaMonster, GetScreenWidth()/2 + 10);
+            break;
+        }
+
+        case 3: {  
+            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width/2);
+            break;
+        }
+
+    }
+};
+
+void GenerateEncounter(Encounter* encounter) {
+    int random = 2+rand() % 1;
+
+    switch (random) {
+        case 0: {
+            encounter->monsters[0] = {new Slime()};
+            encounter->monsters[1] = {new Slime()};
+            encounter->monsters[2] = {new Slime()};
+            encounter->monsters[3] = {NULL};
+            encounter->monsters[4] = {NULL};
+            encounter->monsterNumber = 3;
+            encounter->type = random;
+            break;
+        }
+
+        case 1: {
+            encounter->monsters[0] = {new Slime()};
+            encounter->monsters[1] = {NULL};
+            encounter->monsters[2] = {NULL};
+            encounter->monsters[3] = {NULL};
+            encounter->monsters[4] = {NULL};
+            encounter->monsterNumber = 1;
+            encounter->type = random;
+            break;
+        }
+
+        case 2: {
+            encounter->monsters[0] = {new Slime()};
+            encounter->monsters[1] = {new Calabaza()};
+            encounter->monsters[2] = {NULL};
+            encounter->monsters[3] = {NULL};
+            encounter->monsters[4] = {NULL};
+            encounter->monsterNumber = 2;
+            encounter->type = random;
+            break;
+        }
+
+        case 3: {
+            encounter->monsters[0] = {new Calabaza()};
+            encounter->monsters[1] = {NULL};
+            encounter->monsters[2] = {NULL};
+            encounter->monsters[3] = {NULL};
+            encounter->monsters[4] = {NULL};
+            encounter->monsterNumber = 1;
+            encounter->type = random;
+            break;
+        }
+    }
+};
+
+
 int main(void)
 {
     const int screenWidth = 800;
@@ -81,7 +195,6 @@ int main(void)
     model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
     Texture2D ramas = LoadTexture("resources/ramas.png");
-    Texture2D monsters[] = {LoadTexture("resources/slime.png")};
 
     Color *mapPixels = LoadImageColors(imMap);
     int pixelArray[16][32];
@@ -113,12 +226,14 @@ int main(void)
         LEFT = 2,
         RIGHT = 3
     };
-
+    
     enum GameState {
         MENU,
         MAZE,
         COMBAT
     };
+
+    Encounter encounter;
 
     Vector2 DIRECTIONS[] = {
         (Vector2) { 0,-1},
@@ -148,12 +263,13 @@ int main(void)
     int playerCellY = (int)(camera.position.z - mapPosition.z + 0.5f);
 
     float deltaBattle = 0.0f;
+    float deltaMonster = 0.0f;
     float fade = 0.0f;
 
     GameState currentState = MAZE;
 
     int stepCounter = 0;
-    int encounter = ENCOUNTER_MIN + rand() % (ENCOUNTER_MAX - ENCOUNTER_MIN + 1);
+    int encounter_steps = ENCOUNTER_MIN + rand() % (ENCOUNTER_MAX - ENCOUNTER_MIN + 1);
 
     while (!WindowShouldClose()) {
         // Cambiar dirección objetivo al presionar teclas
@@ -220,9 +336,9 @@ int main(void)
                         moving = 0;
                         gamePos = nextGamePos;
 
-                        if (stepCounter == encounter) {
+                        if (stepCounter == encounter_steps) {
                             stepCounter = 0;
-                            encounter = ENCOUNTER_MIN + rand() % (ENCOUNTER_MAX - ENCOUNTER_MIN + 1);
+                            encounter_steps = ENCOUNTER_MIN + rand() % (ENCOUNTER_MAX - ENCOUNTER_MIN + 1);
                             battle = true;
                         }
                     }
@@ -254,6 +370,7 @@ int main(void)
                         deltaBattle = 0.0f;
                         battle = false;
                         heigh = 0.9f;
+                        GenerateEncounter(&encounter);
                         currentState = COMBAT;
                     }
                 }
@@ -272,7 +389,7 @@ int main(void)
                 //DrawText(TextFormat("Direction: (%d)", direction), 10, 90, 20, DARKGRAY);
 
                 DrawText(TextFormat("CounterStep: (%d)", stepCounter), 10, 30, 20, DARKGRAY);
-                DrawText(TextFormat("Encounter: (%d)", encounter), 10, 50, 20, DARKGRAY);
+                DrawText(TextFormat("Encounter: (%d)", encounter_steps), 10, 50, 20, DARKGRAY);
                 
                 DrawFPS(10, 10);
                 
@@ -282,16 +399,24 @@ int main(void)
 
 
             case COMBAT: {
-                camera.target = Vector3{17.5f,0.0,5.0f};
+                camera.fovy = 70;
+                camera.target = Vector3{17.0f,0.0,5.0f};
                 if (heigh > 0.4f) {
                     camera.position = (Vector3){16.0f, heigh, 5.0f};
                     heigh = heigh - 0.01f ;
                     fade -= 5.1f;
+                    if (heigh < 0.7f)
+                        deltaMonster += 0.015f;
+                     
+                }
+
+                else if (deltaMonster < 0.5f) {
+                    deltaMonster = deltaMonster + 0.015f > 0.5f ? 0.5f : deltaMonster + 0.015f;
                 }
 
                 else {
                     camera.position = (Vector3){16.0f,0.4,5.0f};
-
+                    deltaMonster = 0.5f;
                     if(IsKeyPressed(KEY_ENTER))
                         currentState = MAZE;
                 }
@@ -301,9 +426,9 @@ int main(void)
                     ClearBackground(SKY);
                 BeginMode3D(camera);
                     DrawModel(model, mapPosition, 1.0f, WHITE); // Dibujar mapa del laberinto
-                    DrawBillboard(camera, monsters[SLIME], (Vector3){camera.position.x + 1.0f, 0.25f, camera.position.z}, 0.5f, WHITE);
                 EndMode3D();
-
+                
+                DrawEncounter(&encounter, camera, deltaMonster);
                 if (heigh > 0.4f)
                     DrawRectangle(0,0,GetScreenWidth(), GetScreenHeight(),(Color){0,0,0,(unsigned char)fade});
                 //DrawTextureEx(cubicmap, (Vector2){GetScreenWidth() - cubicmap.width * 4.0f - 20, 20.0f}, 0.0f, 4.0f, WHITE);
