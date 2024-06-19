@@ -6,6 +6,32 @@
 #include <time.h>       // library for time()
 #include <string>
 
+bool FULLSCREEN = false;
+
+Texture2D Textures[3];
+Texture2D UITextures[8];
+
+Font font; 
+
+enum Monsters {
+    CHIMON,
+    SLAIER,
+    CATERLY
+};
+
+#define HEIGHT_MONSTER 100.0f
+
+const char* Options[] = {
+    "ATTACK",
+    "DEFEND",
+    "SKILL",
+    "ITEM",
+    "BURST",
+    "SWITCH",
+    "ESCAPE"
+    };
+
+
 class Monster {
     protected:
         std::string name;
@@ -20,20 +46,36 @@ class Monster {
         Monster(std::string _name, int _health, int _attack, int _defense, int _speed, Texture _image)
             : name(_name), health(_health), attack(_attack), defense(_defense), speed(_speed), image(_image) {}
 
-        void Draw(float deltaMonster, float pos) {
-            DrawTextureEx(image, (Vector2){pos, (float)(GetScreenHeight()/3 - image.height/4)}, 0.0f, 1.0f, WHITE);
+        void Draw(float deltaMonster,float fade, float pos) {
+            DrawTextureEx(
+                image,
+                (Vector2) {GetScreenWidth()/2 + pos * (1 + (float)FULLSCREEN),
+                            (float)GetScreenHeight()/3 - ((image.height * (1 + (float)FULLSCREEN))/3) - (HEIGHT_MONSTER+HEIGHT_MONSTER*FULLSCREEN) +  (deltaMonster+deltaMonster*FULLSCREEN)},
+                            0.0f,
+                            1.0f + float(FULLSCREEN),
+                            (Color){255,255,255, (unsigned char)fade});
         }
 };
 
-class Slime : public Monster {
+class Chimon : public Monster {
     public:
-        Slime() : Monster("Slime", 10, 5, 5, 5, LoadTexture("resources/slime.png")) {}
+        Chimon() : Monster("Chimon", 10, 5, 5, 5, Textures[CHIMON]) {}
 };
 
-class Calabaza : public Monster {
+class Caterly : public Monster {
     public:
-        Calabaza() : Monster("Calabaza", 20, 7, 8, 3, LoadTexture("resources/calabaza.png")) {}
+        Caterly() : Monster("Caterly", 20, 7, 8, 3,Textures[CATERLY]) {}
 };
+
+class Slaier : public Monster {
+    public:
+        Slaier() : Monster("Slaier", 20, 7, 8, 3, Textures[SLAIER]) {}
+};
+
+
+void FillWindow(Color color, float fade){
+    DrawRectangle(0,0, GetScreenWidth(), GetScreenHeight() + (float)FULLSCREEN * 100,(Color){color.r,color.g,color.b,(unsigned char)fade});
+}
 
 // definition of constants
 #define BLOCK_SIZE 1.0f     // Size of Block
@@ -81,33 +123,58 @@ Vector3 operator+(const Vector3& v1, const Vector3& v2) {
 }
 
 struct Encounter{
+        int type;
         int monsterNumber;
         Monster* monsters[5];
-        int type;
     };
+
+void DrawUI(int* index){
+
+    if (IsKeyPressed(KEY_W))
+        *index = *index - 1 == -1? 7 : *index - 1 == 0? 7 : *index - 1;
     
-void DrawEncounter(Encounter* encounter, Camera camera, float deltaMonster)  {
+    else if (IsKeyPressed(KEY_S))
+        *index = *index + 1 == 8? 1 : *index + 1;
+
+    DrawTextureEx(UITextures[*index], (Vector2){ 0, 113.0f * (1 + FULLSCREEN)}, 0.0f, 1.0f + (float)FULLSCREEN, WHITE);
+
+    for (int i = 0; i < 7; i++){
+        if (i+1 == *index)
+            DrawTextEx(font, TextFormat(Options[i]), (Vector2) {180.0f, 116.0f + 39.0f*i} * (1 + FULLSCREEN), 47 * (1 + FULLSCREEN), 0.0f, (Color){0,0,102,230});
+        else DrawTextEx(font, TextFormat(Options[i]), (Vector2) {180.0f, 116.0f + 39.0f*i} * (1 + FULLSCREEN), 47 * (1 + FULLSCREEN), 0.0f, (Color){255,255,255,230});
+    }
+    
+}
+
+void DrawEncounter(Encounter* encounter, Camera camera, float deltaMonster, float fade)  {
     switch(encounter->type){ 
         case 0: {  
-            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width/2 - encounter->monsters[0]->image.width - 20);
-            encounter->monsters[1]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[1]->image.width/2);
-            encounter->monsters[2]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[2]->image.width/2 + encounter->monsters[2]->image.width + 20);
+            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2 - encounter->monsters[0]->image.width - 10);
+            encounter->monsters[1]->Draw(deltaMonster, fade, - encounter->monsters[1]->image.width/2);
+            encounter->monsters[2]->Draw(deltaMonster, fade, - encounter->monsters[2]->image.width/2 + encounter->monsters[2]->image.width + 10);
             break;
         }
 
         case 1: {  
-            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width/2);
+            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2);
             break;
         }
 
         case 2: {  
-            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width - 10);
-            encounter->monsters[1]->Draw(deltaMonster, GetScreenWidth()/2 + 10);
+            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width - 5);
+            encounter->monsters[1]->Draw(deltaMonster, fade, + 5);
             break;
         }
 
         case 3: {  
-            encounter->monsters[0]->Draw(deltaMonster, GetScreenWidth()/2 - encounter->monsters[0]->image.width/2);
+            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2);
+            break;
+        }
+
+        case 4: {  
+            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2 - encounter->monsters[0]->image.width - 10);
+            encounter->monsters[1]->Draw(deltaMonster, fade, - encounter->monsters[1]->image.width/2);
+            encounter->monsters[2]->Draw(deltaMonster, fade, - encounter->monsters[2]->image.width/2 + encounter->monsters[2]->image.width + 10);
             break;
         }
 
@@ -115,63 +182,32 @@ void DrawEncounter(Encounter* encounter, Camera camera, float deltaMonster)  {
 };
 
 void GenerateEncounter(Encounter* encounter) {
-    int random = 2+rand() % 1;
 
-    switch (random) {
-        case 0: {
-            encounter->monsters[0] = {new Slime()};
-            encounter->monsters[1] = {new Slime()};
-            encounter->monsters[2] = {new Slime()};
-            encounter->monsters[3] = {NULL};
-            encounter->monsters[4] = {NULL};
-            encounter->monsterNumber = 3;
-            encounter->type = random;
-            break;
-        }
+    Encounter setups[] = {
+        {0, 3, {new Chimon(), new Chimon(), new Chimon(), NULL, NULL}},
+        {1, 1, {new Chimon(), NULL, NULL, NULL, NULL}},
+        {2, 2, {new Chimon(), new Caterly(), NULL, NULL, NULL}},
+        {3, 1, {new Caterly(), NULL, NULL, NULL, NULL}},
+        {4, 3, {new Slaier(), new Chimon(), new Caterly(), NULL, NULL}}
+    };
 
-        case 1: {
-            encounter->monsters[0] = {new Slime()};
-            encounter->monsters[1] = {NULL};
-            encounter->monsters[2] = {NULL};
-            encounter->monsters[3] = {NULL};
-            encounter->monsters[4] = {NULL};
-            encounter->monsterNumber = 1;
-            encounter->type = random;
-            break;
-        }
+    int random = rand() % 5;
 
-        case 2: {
-            encounter->monsters[0] = {new Slime()};
-            encounter->monsters[1] = {new Calabaza()};
-            encounter->monsters[2] = {NULL};
-            encounter->monsters[3] = {NULL};
-            encounter->monsters[4] = {NULL};
-            encounter->monsterNumber = 2;
-            encounter->type = random;
-            break;
-        }
-
-        case 3: {
-            encounter->monsters[0] = {new Calabaza()};
-            encounter->monsters[1] = {NULL};
-            encounter->monsters[2] = {NULL};
-            encounter->monsters[3] = {NULL};
-            encounter->monsters[4] = {NULL};
-            encounter->monsterNumber = 1;
-            encounter->type = random;
-            break;
-        }
+    encounter->type = setups[random].type;
+    encounter->monsterNumber = setups[random].monsterNumber;
+    for (int i = 0; i < 5; i++) {
+        encounter->monsters[i] = setups[random].monsters[i];
     }
-};
-
+}
 
 int main(void)
 {
-    const int screenWidth = 800;
-    const int screenHeight = 450;
+    
+    const int screenWidth = 960;
+    const int screenHeight = 540;
     InitWindow(screenWidth, screenHeight, "Maze Core");
-    srand(time(NULL));
 
+    srand(time(NULL));
 
     //camera
     Camera camera = { 0 };
@@ -182,9 +218,11 @@ int main(void)
     camera.projection = CAMERA_PERSPECTIVE;
 
     //list of monster
-    enum Monsters {
-        SLIME
-    };
+    
+
+    Textures[0] = LoadTexture("resources/chimon.png");
+    Textures[1] = LoadTexture("resources/slaier.png");
+    Textures[2] = LoadTexture("resources/caterly.png");
 
     Image imMap = LoadImage("resources/cubicmap.png");
     Texture2D cubicmap = LoadTextureFromImage(imMap);
@@ -195,7 +233,11 @@ int main(void)
     model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
     Texture2D ramas = LoadTexture("resources/ramas.png");
+    
+    for (int i = 0; i<8; i++)
+        UITextures[i] = LoadTexture(("resources/UIselector/UIselector" + std::to_string(i) +".png").c_str());
 
+    font = LoadFont("resources/font/dungeon.otf");
     Color *mapPixels = LoadImageColors(imMap);
     int pixelArray[16][32];
 
@@ -255,6 +297,7 @@ int main(void)
     bool rotating = false;
     int moving = 0;
     int tile = 0;
+    int index = 0;
 
     float heigh = 0.0f;
     bool battle = false;
@@ -271,7 +314,17 @@ int main(void)
     int stepCounter = 0;
     int encounter_steps = ENCOUNTER_MIN + rand() % (ENCOUNTER_MAX - ENCOUNTER_MIN + 1);
 
+    float monsterFade = 0.0f;
+
     while (!WindowShouldClose()) {
+
+        if (IsKeyPressed(KEY_F)) {
+			
+            if (!FULLSCREEN){SetWindowSize(GetMonitorWidth(0), GetMonitorHeight(0)), ToggleFullscreen();}
+            else {ToggleFullscreen(); SetWindowSize(screenWidth, screenHeight);}
+            FULLSCREEN = !FULLSCREEN;
+		}
+
         // Cambiar dirección objetivo al presionar teclas
         switch (currentState) {
             case MAZE: {
@@ -360,16 +413,20 @@ int main(void)
                 if (battle) {
                     deltaBattle += 2.5f;
                     fade = (fade+5.5>255)?255:fade+5.5;
-                    DrawTextureEx(ramas, (Vector2){-ramas.width/8.0f, ramas.height/8.0f}, 90-deltaBattle, 1.0f, WHITE);
-                    DrawTextureEx(ramas, (Vector2){-ramas.width/8.0f, GetScreenHeight()+ramas.height/2.0f}, -deltaBattle, 1.0f, WHITE);
-                    DrawTextureEx(ramas, (Vector2){GetScreenWidth()+ramas.width/8.0f, ramas.height/8.0f}, deltaBattle, 1.0f, WHITE);
-                    DrawTextureEx(ramas, (Vector2){GetScreenWidth()+ramas.width/8.0f, GetScreenHeight()+ramas.height/2.0f}, 90+deltaBattle, 1.0f, WHITE);
-                    DrawRectangle(0,0,GetScreenWidth(), GetScreenHeight(),(Color){0,0,0,(unsigned char)fade});
+                    DrawTextureEx(ramas, (Vector2){-ramas.width/8.0f, ramas.height/8.0f}, 90-deltaBattle, 1.0f + float(FULLSCREEN), WHITE);
+                    DrawTextureEx(ramas, (Vector2){-ramas.width/8.0f, GetScreenHeight()+ramas.height/2.0f}, -deltaBattle, 1.0f + float(FULLSCREEN), WHITE);
+                    DrawTextureEx(ramas, (Vector2){GetScreenWidth()+ramas.width/8.0f, ramas.height/8.0f}, deltaBattle, 1.0f + float(FULLSCREEN), WHITE);
+                    DrawTextureEx(ramas, (Vector2){GetScreenWidth()+ramas.width/8.0f, GetScreenHeight()+ramas.height/2.0f}, 90+deltaBattle, 1.0f + float(FULLSCREEN), WHITE);
+                    
+                    FillWindow((Color){0,0,0}, fade);
                     
                     if(deltaBattle >= 160.0f){
+                        monsterFade = 0.0f;
+                        deltaMonster = 0.0f;
                         deltaBattle = 0.0f;
                         battle = false;
                         heigh = 0.9f;
+                        index = 0;
                         GenerateEncounter(&encounter);
                         currentState = COMBAT;
                     }
@@ -390,6 +447,8 @@ int main(void)
 
                 DrawText(TextFormat("CounterStep: (%d)", stepCounter), 10, 30, 20, DARKGRAY);
                 DrawText(TextFormat("Encounter: (%d)", encounter_steps), 10, 50, 20, DARKGRAY);
+
+                DrawText(TextFormat("Size: (%d), (%d)", GetMonitorWidth(GetCurrentMonitor()),GetMonitorHeight(GetCurrentMonitor())), 10, 70, 20, DARKGRAY);
                 
                 DrawFPS(10, 10);
                 
@@ -405,18 +464,21 @@ int main(void)
                     camera.position = (Vector3){16.0f, heigh, 5.0f};
                     heigh = heigh - 0.01f ;
                     fade -= 5.1f;
-                    if (heigh < 0.7f)
-                        deltaMonster += 0.015f;
-                     
                 }
 
-                else if (deltaMonster < 0.5f) {
-                    deltaMonster = deltaMonster + 0.015f > 0.5f ? 0.5f : deltaMonster + 0.015f;
+                else if (deltaMonster < HEIGHT_MONSTER) {
+                    deltaMonster = deltaMonster + 3.5f > HEIGHT_MONSTER? HEIGHT_MONSTER : deltaMonster + 3.5f;
+                    monsterFade = monsterFade + 10.0f > 255.0f ?  255.0f : monsterFade + 10.0f;
+                }
+
+                else if (monsterFade < 254.9f) {
+                    monsterFade = monsterFade + 10.0f > 255.0f ?  255.0f : monsterFade + 10.0f;
                 }
 
                 else {
                     camera.position = (Vector3){16.0f,0.4,5.0f};
-                    deltaMonster = 0.5f;
+                    deltaMonster = HEIGHT_MONSTER;
+                    monsterFade = 255.0f;
                     if(IsKeyPressed(KEY_ENTER))
                         currentState = MAZE;
                 }
@@ -428,9 +490,12 @@ int main(void)
                     DrawModel(model, mapPosition, 1.0f, WHITE); // Dibujar mapa del laberinto
                 EndMode3D();
                 
-                DrawEncounter(&encounter, camera, deltaMonster);
+                DrawEncounter(&encounter, camera, deltaMonster, monsterFade);
+                
+                DrawUI(&index);
+                
                 if (heigh > 0.4f)
-                    DrawRectangle(0,0,GetScreenWidth(), GetScreenHeight(),(Color){0,0,0,(unsigned char)fade});
+                    FillWindow((Color){0,0,0}, fade);
                 //DrawTextureEx(cubicmap, (Vector2){GetScreenWidth() - cubicmap.width * 4.0f - 20, 20.0f}, 0.0f, 4.0f, WHITE);
                 
                 DrawFPS(10, 10);
