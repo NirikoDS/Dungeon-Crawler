@@ -6,206 +6,23 @@
 #include <time.h>       // library for time()
 #include <string>
 
-bool FULLSCREEN = false;
+#include "lib/tools.h"
+#include "lib/SaveSystem.hpp"
+#include "lib/City.hpp"
 
-Texture2D Textures[3];
-Texture2D UITextures[8];
-
-Font font; 
-
-enum Monsters {
-    CHIMON,
-    SLAIER,
-    CATERLY
-};
-
-#define HEIGHT_MONSTER 100.0f
-
-const char* Options[] = {
-    "ATTACK",
-    "DEFEND",
-    "SKILL",
-    "ITEM",
-    "BURST",
-    "SWITCH",
-    "ESCAPE"
-    };
-
-
-class Monster {
-    protected:
-        std::string name;
-        int health;
-        int attack;
-        int defense;
-        int speed;
-    
-    public:
-        Texture image;
-        
-        Monster(std::string _name, int _health, int _attack, int _defense, int _speed, Texture _image)
-            : name(_name), health(_health), attack(_attack), defense(_defense), speed(_speed), image(_image) {}
-
-        void Draw(float deltaMonster,float fade, float pos) {
-            DrawTextureEx(
-                image,
-                (Vector2) {GetScreenWidth()/2 + pos * (1 + (float)FULLSCREEN),
-                            (float)GetScreenHeight()/3 - ((image.height * (1 + (float)FULLSCREEN))/3) - (HEIGHT_MONSTER+HEIGHT_MONSTER*FULLSCREEN) +  (deltaMonster+deltaMonster*FULLSCREEN)},
-                            0.0f,
-                            1.0f + float(FULLSCREEN),
-                            (Color){255,255,255, (unsigned char)fade});
-        }
-};
-
-class Chimon : public Monster {
-    public:
-        Chimon() : Monster("Chimon", 10, 5, 5, 5, Textures[CHIMON]) {}
-};
-
-class Caterly : public Monster {
-    public:
-        Caterly() : Monster("Caterly", 20, 7, 8, 3,Textures[CATERLY]) {}
-};
-
-class Slaier : public Monster {
-    public:
-        Slaier() : Monster("Slaier", 20, 7, 8, 3, Textures[SLAIER]) {}
-};
-
-
-void FillWindow(Color color, float fade){
-    DrawRectangle(0,0, GetScreenWidth(), GetScreenHeight() + (float)FULLSCREEN * 100,(Color){color.r,color.g,color.b,(unsigned char)fade});
-}
-
-// definition of constants
-#define BLOCK_SIZE 1.0f     // Size of Block
-#define ROTATION_SPEED 4.0f // Velocidad de rotación en radianes por segundo
-#define MOVE_SPEED 0.05f    // Velocity of movement
-
-#define SKY (Color){187,234,244} // Color of the background
-
-// Range till encounter
-#define ENCOUNTER_MIN 1
-#define ENCOUNTER_MAX 1
-
-// Función para calcular la diferencia mínima entre dos ángulos
-float AngleDifference(float target, float current) {
-    float diff = target - current;
-    while (diff > PI) diff -= 2.0f * PI;
-    while (diff < -PI) diff += 2.0f * PI;
-    return diff;
-}
-
-// Operadores para facilitar las operaciones con Vector2
-Vector2 operator+(const Vector2& v1, const Vector2& v2) {
-    return (Vector2){v1.x + v2.x, v1.y + v2.y};
-}
-
-Vector2 operator-(const Vector2& v1, const Vector2& v2) {
-    return (Vector2){v1.x - v2.x, v1.y - v2.y};
-}
-
-Vector2 operator*(const Vector2& v, float scalar) {
-    return (Vector2){v.x * scalar, v.y * scalar};
-}
-
-bool operator<(const Vector2& v1, const Vector2& v2) {
-    return {v1.x < v2.x || v1.y < v2.y};
-}
-
-// Conversión de coordenadas del juego a coordenadas del mundo
-Vector3 gameToWorld(Vector2 gamePos) {
-    return (Vector3){gamePos.x, 0.4f, gamePos.y};
-}
-
-Vector3 operator+(const Vector3& v1, const Vector3& v2) {
-    return (Vector3){v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
-}
-
-struct Encounter{
-        int type;
-        int monsterNumber;
-        Monster* monsters[5];
-    };
-
-void DrawUI(int* index){
-
-    if (IsKeyPressed(KEY_W))
-        *index = *index - 1 == -1? 7 : *index - 1 == 0? 7 : *index - 1;
-    
-    else if (IsKeyPressed(KEY_S))
-        *index = *index + 1 == 8? 1 : *index + 1;
-
-    DrawTextureEx(UITextures[*index], (Vector2){ 0, 113.0f * (1 + FULLSCREEN)}, 0.0f, 1.0f + (float)FULLSCREEN, WHITE);
-
-    for (int i = 0; i < 7; i++){
-        if (i+1 == *index)
-            DrawTextEx(font, TextFormat(Options[i]), (Vector2) {180.0f, 116.0f + 39.0f*i} * (1 + FULLSCREEN), 47 * (1 + FULLSCREEN), 0.0f, (Color){0,0,102,230});
-        else DrawTextEx(font, TextFormat(Options[i]), (Vector2) {180.0f, 116.0f + 39.0f*i} * (1 + FULLSCREEN), 47 * (1 + FULLSCREEN), 0.0f, (Color){255,255,255,230});
-    }
-    
-}
-
-void DrawEncounter(Encounter* encounter, Camera camera, float deltaMonster, float fade)  {
-    switch(encounter->type){ 
-        case 0: {  
-            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2 - encounter->monsters[0]->image.width - 10);
-            encounter->monsters[1]->Draw(deltaMonster, fade, - encounter->monsters[1]->image.width/2);
-            encounter->monsters[2]->Draw(deltaMonster, fade, - encounter->monsters[2]->image.width/2 + encounter->monsters[2]->image.width + 10);
-            break;
-        }
-
-        case 1: {  
-            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2);
-            break;
-        }
-
-        case 2: {  
-            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width - 5);
-            encounter->monsters[1]->Draw(deltaMonster, fade, + 5);
-            break;
-        }
-
-        case 3: {  
-            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2);
-            break;
-        }
-
-        case 4: {  
-            encounter->monsters[0]->Draw(deltaMonster, fade, - encounter->monsters[0]->image.width/2 - encounter->monsters[0]->image.width - 10);
-            encounter->monsters[1]->Draw(deltaMonster, fade, - encounter->monsters[1]->image.width/2);
-            encounter->monsters[2]->Draw(deltaMonster, fade, - encounter->monsters[2]->image.width/2 + encounter->monsters[2]->image.width + 10);
-            break;
-        }
-
-    }
-};
-
-void GenerateEncounter(Encounter* encounter) {
-
-    Encounter setups[] = {
-        {0, 3, {new Chimon(), new Chimon(), new Chimon(), NULL, NULL}},
-        {1, 1, {new Chimon(), NULL, NULL, NULL, NULL}},
-        {2, 2, {new Chimon(), new Caterly(), NULL, NULL, NULL}},
-        {3, 1, {new Caterly(), NULL, NULL, NULL, NULL}},
-        {4, 3, {new Slaier(), new Chimon(), new Caterly(), NULL, NULL}}
-    };
-
-    int random = rand() % 5;
-
-    encounter->type = setups[random].type;
-    encounter->monsterNumber = setups[random].monsterNumber;
-    for (int i = 0; i < 5; i++) {
-        encounter->monsters[i] = setups[random].monsters[i];
-    }
-}
-
+// Define the height to enter combat
 int main(void)
 {
-    
     const int screenWidth = 960;
     const int screenHeight = 540;
-    InitWindow(screenWidth, screenHeight, "Maze Core");
+    InitWindow(screenWidth, screenHeight, "Forgotten Echoes");
+    InitAudioDevice();
+
+    // Load the MP3 sound
+    Sound sound = LoadSound("resources/sound.mp3");
+
+    // Set the volume for the sound (optional)
+    SetSoundVolume(sound, 0.5f);
 
     srand(time(NULL));
 
@@ -214,38 +31,32 @@ int main(void)
     camera.position = (Vector3) {0.2f, 0.4f, 0.2f};
     camera.target = (Vector3) {0.2f, 0.4f, 0.0f};
     camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
-    camera.fovy = 45.0f;
+    camera.fovy = 60.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    //list of monster
-    
-
-    Textures[0] = LoadTexture("resources/chimon.png");
-    Textures[1] = LoadTexture("resources/slaier.png");
-    Textures[2] = LoadTexture("resources/caterly.png");
+    LoadResources();
 
     Image imMap = LoadImage("resources/cubicmap.png");
     Texture2D cubicmap = LoadTextureFromImage(imMap);
     Mesh mesh = GenMeshCubicmap(imMap, (Vector3){1.0f, 1.0f, 1.0f});
     Model model = LoadModelFromMesh(mesh);
 
-    Texture2D texture = LoadTexture("resources/cubicmap_atlas.png");
-    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    Texture2D texture1 = LoadTexture("resources/atlasDay.png");
+    Texture2D BattleResults = LoadTexture("resources/Scenarios/BattleResults.png");
+    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture1;
 
-    Texture2D ramas = LoadTexture("resources/ramas.png");
+    Texture2D ramas;
     
-    for (int i = 0; i<8; i++)
-        UITextures[i] = LoadTexture(("resources/UIselector/UIselector" + std::to_string(i) +".png").c_str());
-
-    font = LoadFont("resources/font/dungeon.otf");
-    Color *mapPixels = LoadImageColors(imMap);
+    Image imMap2 = LoadImage("resources/cubicmapLocations.png");
+    Color *mapPixels = LoadImageColors(imMap2);
     int pixelArray[16][32];
 
     // Convert to a binary pixel array
     for (int y = 0; y < 16; y++) {
         for (int x = 0; x < 32; x++) {
             Color color = mapPixels[y * (32 + 4) + x];
-            pixelArray[y][x] = (color.r > 128 && color.g > 128 && color.b > 128) ? 0 : 1; // Simplified thresholding for B/W
+            pixelArray[y][x] = (color.r > 200 && color.g > 200 && color.b > 200) ? 0 : 
+                                (color.r > 200 ) ? 2 : 1; // Simplified thresholding for B/W
             //std::cout<<pixelArray[y][x]<<" ";
         }
         //std::cout<<std::endl;
@@ -260,28 +71,13 @@ int main(void)
 
     Vector2 gamePos = {mapPosition.x + 1.0f, mapPosition.z + 1.0f};
     Vector2 nextGamePos = gamePos;
-    Vector2 playerPos = {1,1};
-
-    enum Direction {
-        UP = 0,
-        DOWN = 1,
-        LEFT = 2,
-        RIGHT = 3
-    };
-    
-    enum GameState {
-        MENU,
-        MAZE,
-        COMBAT
-    };
-
-    Encounter encounter;
+    Vector2 playerPos = {1,1}; //con referencia al mapa
 
     Vector2 DIRECTIONS[] = {
-        (Vector2) { 0,-1},
-        (Vector2) { 0, 1},
-        (Vector2) {-1, 0},
-        (Vector2) { 1, 0},
+        (Vector2) { 0,-1}, //arriba
+        (Vector2) { 0, 1}, //abajo
+        (Vector2) {-1, 0}, //izquierda
+        (Vector2) { 1, 0}, //derecha
     };
 
     float angles[] = {
@@ -294,6 +90,7 @@ int main(void)
     int direction = RIGHT;
     float currentAngle = angles[direction];
     float targetAngle = currentAngle;
+    
     bool rotating = false;
     int moving = 0;
     int tile = 0;
@@ -308,13 +105,43 @@ int main(void)
     float deltaBattle = 0.0f;
     float deltaMonster = 0.0f;
     float fade = 0.0f;
+    float monsterFade = 0.0f;
+    float ExperienceFade = 0.0f;
+    int fadeEntrance = 255;
 
-    GameState currentState = MAZE;
+    GameState currentState = MENU;
 
     int stepCounter = 0;
     int encounter_steps = ENCOUNTER_MIN + rand() % (ENCOUNTER_MAX - ENCOUNTER_MIN + 1);
 
-    float monsterFade = 0.0f;
+    team[0] = new Warrior("Thalorin", UI_Swordsman[0], 0);
+    team[2] = new Warrior("Elara", UI_Swordsman[1], 1);
+    team[3] = new Warrior("Gorak", UI_Swordsman[2], 2);
+    team[4] = new Warrior("Lyria", UI_Swordsman[3], 3);
+    team[5] = new Warrior("Darine", UI_Swordsman[4], 4);
+
+    team[3]->GainExp(10000);
+    team[2]->GainExp(100);
+    team[0]->GainExp(25);
+
+    Inventory.push_back(Item{"Potion", "Heals 10 HP", 50, USABLE});
+    Inventory.push_back(Item{"Sword", "A basic weapon for a warrrior", 75, EQUIPMENT});
+    Inventory.push_back(Item{"Potion", "Heals 10 HP", 50, USABLE});
+    Inventory.push_back(Item{"Sword", "A basic weapon for a warrrior", 75, EQUIPMENT});
+    Inventory.push_back(Item{"Potion", "Heals 10 HP", 50, USABLE});
+    Inventory.push_back(Item{"Sword", "A basic weapon for a warrrior", 75, EQUIPMENT});
+    Inventory.push_back(Item{"Potion", "Heals 10 HP", 50, USABLE});
+    Inventory.push_back(Item{"Sword", "A basic weapon for a warrrior", 75, EQUIPMENT});
+    Inventory.push_back(Item{"Potion", "Heals 10 HP", 50, USABLE});
+    Inventory.push_back(Item{"Large Potion", "Heals 50 HP", 70, USABLE});
+
+    SortInventory();
+
+    //for (const auto &item : Inventory) std::cout << "Name: " << item.name << ", Value: " << item.value << std::endl;
+
+    TeamDivider();
+
+    float r = 255, g = 255, b = 255;
 
     while (!WindowShouldClose()) {
 
@@ -323,11 +150,17 @@ int main(void)
             if (!FULLSCREEN){SetWindowSize(GetMonitorWidth(0), GetMonitorHeight(0)), ToggleFullscreen();}
             else {ToggleFullscreen(); SetWindowSize(screenWidth, screenHeight);}
             FULLSCREEN = !FULLSCREEN;
+            scale = 1 + FULLSCREEN;
 		}
 
         // Cambiar dirección objetivo al presionar teclas
         switch (currentState) {
             case MAZE: {
+                static bool entrance = true;
+                static bool exit = false;
+                camera.fovy = 65.0f;
+                if (!IsSoundPlaying(sound)) PlaySound(sound);
+
                 if(!rotating && moving==0 and !battle){
                     if (IsKeyDown(KEY_A)) {
                         direction = direction == RIGHT ? UP : direction == UP ? LEFT : direction == LEFT ? DOWN : RIGHT;
@@ -355,35 +188,54 @@ int main(void)
                 camera.target = gameToWorld(gamePos + currentDir);
                 camera.position = gameToWorld(gamePos);
 
+                tile = pixelArray[(int)(playerPos.y + DIRECTIONS[direction].y)][(int)(playerPos.x + DIRECTIONS[direction].x)];
+
                 if (!rotating && moving==0 and !battle) {
                     if (IsKeyDown(KEY_W)){ 
-                        tile = pixelArray[(int)(playerPos.y + DIRECTIONS[direction].y)][(int)(playerPos.x + DIRECTIONS[direction].x)];
-                        if (tile != 0) {
+                        if (tile != 0 && tile != 2) {
                             nextGamePos = gamePos + currentDir;
                             playerPos = playerPos + DIRECTIONS[direction];
                             moving = 1;
+                            hour = hour==239? 0 : hour + 1;
 
                             if (tile == 1)
                                 stepCounter++;
-
                         }
                     }
 
                     else if (IsKeyDown(KEY_S)){
                         tile = pixelArray[(int)(playerPos.y - DIRECTIONS[direction].y)][(int)(playerPos.x - DIRECTIONS[direction].x)];
-                        if (tile != 0) {
+                        if (tile != 0 && tile != 2) {
                             nextGamePos = gamePos - currentDir;
                             playerPos = playerPos - DIRECTIONS[direction];
                             moving = -1;
+                            hour = hour==239? 0 : hour + 1;
 
                             if (tile == 1)
                                 stepCounter++;
+
                         }
                     }
                 }
 
+                if (IsKeyPressed(KEY_ENTER) && tile == 2) {
+                    exit = true;
+                }
+
                 if (moving!=0){
                     gamePos = gamePos + ((moving==1? currentDir : currentDir*-1) * MOVE_SPEED);
+                    
+                    if (hour==180) {
+                        if (int(r) != 26) r = (r > 26)? r - 12.06 : 26;
+                        if (int(g) != 78) g = (g > 78)? g - 9.32 : 78;
+                        if (int(b) != 129) b = (b > 129)? b - 6.64 : 129;
+                    }
+
+                    if (hour==60) {
+                        if (int(r) != 255) r = (r < 255)? r + 12.06 : 255;
+                        if (int(g) != 255) g = (g < 255)? g + 9.32 : 255;
+                        if (int(b) != 255) b = (b < 255)? b + 6.64 : 255;
+                    }
 
                     if (fabs(gamePos.x - nextGamePos.x) < MOVE_SPEED && fabs(gamePos.y - nextGamePos.y) < MOVE_SPEED){
                         moving = 0;
@@ -395,24 +247,39 @@ int main(void)
                             battle = true;
                         }
                     }
-                        
                 }
 
                 playerCellX = (int)(camera.position.x - mapPosition.x + 0.5f);
                 playerCellY = (int)(camera.position.z - mapPosition.z + 0.5f);
                 
-
                 BeginDrawing();
                     ClearBackground(SKY);
-
+                
+                //230 215 130
+                
                 BeginMode3D(camera);
-                    DrawModel(model, mapPosition, 1.0f, WHITE); // Dibujar mapa del laberinto
+                    DrawModel(model, mapPosition, 1.0f, {(unsigned char)r, (unsigned char)g, (unsigned char)b, 255}); // Dibujar mapa del laberinto
                 EndMode3D();
 
+                    DrawClock();
+                if (entrance) {
+                    fadeEntrance -= 10;
+                    if(fadeEntrance < 0) {fadeEntrance = 0; entrance = false;}
+                    FillWindow((Color){0,0,0}, fadeEntrance);
+                }
+
+                if(exit) {
+                    StopSound(sound);
+                    fadeEntrance += 10;
+                    if(fadeEntrance > 255) {fadeEntrance = 255; entrance = true; exit = false; currentState = MENU;}
+                    
+                    FillWindow((Color){0,0,0}, fadeEntrance);
+                }
 
                 if (battle) {
                     deltaBattle += 2.5f;
                     fade = (fade+5.5>255)?255:fade+5.5;
+                    if (!IsTextureReady(ramas)) ramas = LoadTexture("resources/ramas.png");
                     DrawTextureEx(ramas, (Vector2){-ramas.width/8.0f, ramas.height/8.0f}, 90-deltaBattle, 1.0f + float(FULLSCREEN), WHITE);
                     DrawTextureEx(ramas, (Vector2){-ramas.width/8.0f, GetScreenHeight()+ramas.height/2.0f}, -deltaBattle, 1.0f + float(FULLSCREEN), WHITE);
                     DrawTextureEx(ramas, (Vector2){GetScreenWidth()+ramas.width/8.0f, ramas.height/8.0f}, deltaBattle, 1.0f + float(FULLSCREEN), WHITE);
@@ -420,13 +287,21 @@ int main(void)
                     
                     FillWindow((Color){0,0,0}, fade);
                     
+                    //EXIT MAZE - ENTER COMBAT
                     if(deltaBattle >= 160.0f){
+                        StopSound(sound);
                         monsterFade = 0.0f;
                         deltaMonster = 0.0f;
                         deltaBattle = 0.0f;
                         battle = false;
+
                         heigh = 0.9f;
                         index = 0;
+                        action = 0;
+                        partyIndex = 0;
+
+                        order.fullReset();
+                        battleExperience = 0;
                         GenerateEncounter(&encounter);
                         currentState = COMBAT;
                     }
@@ -438,28 +313,35 @@ int main(void)
                 // Dibujar posición del jugador en el radar
                 DrawRectangle(GetScreenWidth() - cubicmap.width * 4 - 20 + playerCellX * 4, 20 + playerCellY * 4, 4, 4, RED);
                 
-                
+                //lineas para probar
+                //DrawText(TextFormat("Encounter EXP: (%g)", battleExperience), 10, 10, 20, DARKGRAY);
+
+                //DrawText(TextFormat("1 EXP: (%d)", team[0]->GetEXP()), 10, 30, 20, DARKGRAY);
+                //DrawText(TextFormat("2 EXP: (%d)", team[2]->GetEXP()), 10, 50, 20, DARKGRAY);
+                //DrawText(TextFormat("3 EXP: (%d)", team[3]->GetEXP()), 10, 70, 20, DARKGRAY);
+                //DrawText(TextFormat("4 EXP: (%d)", team[4]->GetEXP()), 10, 90, 20, DARKGRAY);
+                //DrawText(TextFormat("5 EXP: (%d)", team[5]->GetEXP()), 10, 110, 20, DARKGRAY);
+
                 //DrawText(TextFormat("Game Position: (%.2f, %.2f)", gamePos.x, gamePos.y), 10, 70, 20, DARKGRAY);
                 //DrawText(TextFormat("Player Position: (%.2f, %.2f)", playerPos.x, playerPos.y), 10, 30, 20, DARKGRAY);
                 //DrawText(TextFormat("CurrentDir: (%.2f, %.2f)", currentDir.x, currentDir.y), 10, 50, 20, DARKGRAY);
                 //DrawText(TextFormat("Array: (%d)", pixelArray[(int)playerPos.y][(int)playerPos.x]), 10, 70, 20, DARKGRAY);
                 //DrawText(TextFormat("Direction: (%d)", direction), 10, 90, 20, DARKGRAY);
-
+/*
                 DrawText(TextFormat("CounterStep: (%d)", stepCounter), 10, 30, 20, DARKGRAY);
                 DrawText(TextFormat("Encounter: (%d)", encounter_steps), 10, 50, 20, DARKGRAY);
 
                 DrawText(TextFormat("Size: (%d), (%d)", GetMonitorWidth(GetCurrentMonitor()),GetMonitorHeight(GetCurrentMonitor())), 10, 70, 20, DARKGRAY);
-                
+                DrawText(TextFormat("Time: (%d)", hour/10), 10, 90, 20, DARKGRAY);
                 DrawFPS(10, 10);
-                
+*/               
                 EndDrawing();
                 break;
             }
 
-
             case COMBAT: {
-                camera.fovy = 70;
                 camera.target = Vector3{17.0f,0.0,5.0f};
+                camera.fovy = 70.0f;
                 if (heigh > 0.4f) {
                     camera.position = (Vector3){16.0f, heigh, 5.0f};
                     heigh = heigh - 0.01f ;
@@ -479,33 +361,205 @@ int main(void)
                     camera.position = (Vector3){16.0f,0.4,5.0f};
                     deltaMonster = HEIGHT_MONSTER;
                     monsterFade = 255.0f;
-                    if(IsKeyPressed(KEY_ENTER))
-                        currentState = MAZE;
                 }
                 
 
                 BeginDrawing();
                     ClearBackground(SKY);
                 BeginMode3D(camera);
-                    DrawModel(model, mapPosition, 1.0f, WHITE); // Dibujar mapa del laberinto
+                    DrawModel(model, mapPosition, 1.0f, {(unsigned char)r, (unsigned char)g, (unsigned char)b, 255}); // Dibujar mapa del laberinto
                 EndMode3D();
-                
+
+                    DrawClock();
+                    DrawTurn();
+                    DrawMessages();
+                    DrawTextMessage();
+
                 DrawEncounter(&encounter, camera, deltaMonster, monsterFade);
+
+                switch(action){
+                    default: action = 0;
+                    case 0: DrawUI(&index, &currentState); break;
+                    case 1: ActionAttack(&encounter, &index); break;
+                    case 3: ActionSkill(team[partyIndex]); break;
+                    case 4: ActionItem(&index); break;
+                    case 9: ExecuteTurn(&currentState); break;
+                }
                 
-                DrawUI(&index);
-                
+                DrawBoxes();
+
                 if (heigh > 0.4f)
                     FillWindow((Color){0,0,0}, fade);
                 //DrawTextureEx(cubicmap, (Vector2){GetScreenWidth() - cubicmap.width * 4.0f - 20, 20.0f}, 0.0f, 4.0f, WHITE);
-                
-                DrawFPS(10, 10);
+                //DrawText(TextFormat("NUMERO: (%d)", monsterNum), 10, 50, 20, DARKGRAY);
+                //DrawText(TextFormat("STACK: (%d)", orderStack.size()), 10, 30, 20, DARKGRAY);
+                //DrawText(TextFormat("QUEUE: (%d)", order.size()), 10, 50, 20, DARKGRAY);
+                //DrawFPS(10, 10);
                 EndDrawing();
                 break;
             }
 
+            case ESCAPE: {
+                static int state = 1;
+                if(state == 1) {
+                    ExperienceFade += 10;
+                    if(ExperienceFade > 255) {ExperienceFade = 255; state = 2;};
+                    FillWindow((Color){0,0,0}, ExperienceFade);
+                }
+
+                else if (state == 2){
+                    camera.fovy = 65.0f;
+                    PlaySound(sound);
+                    Vector2 currentDir = {(float)cos(currentAngle), (float)sin(currentAngle)};
+                    camera.target = gameToWorld(gamePos + currentDir);
+                    camera.position = gameToWorld(gamePos);
+
+                    ClearBackground(SKY);
+
+                    BeginMode3D(camera);
+                        DrawModel(model, mapPosition, 1.0f, {(unsigned char)r, (unsigned char)g, (unsigned char)b, 255}); // Dibujar mapa del laberinto
+                    EndMode3D();
+                    DrawClock();
+
+                    ExperienceFade -= 10;
+                    if(ExperienceFade < 0) {ExperienceFade = 0; state = 3;}
+                    FillWindow((Color){0,0,0}, ExperienceFade);
+                }
+
+                else if (state == 3) {
+                    currentState = MAZE;
+                    state = 1;
+                }
+
+                EndDrawing();
+                break;
+            }
+
+            case EXPERIENCE: {
+                static int state = 1;
+                BeginDrawing();
+                if(state == 1) {
+                    ExperienceFade += 10;
+                    if(ExperienceFade > 255) {ExperienceFade = 255; state = 2;};
+                    FillWindow((Color){0,0,0}, ExperienceFade);
+                    }
+
+                else if (state == 2) {
+                    DrawTextureEx(BattleResults, Vector2{0,0}, 0, scale, WHITE);
+                    DrawTextEx(names, "EXP", Vector2{649, 48}*scale, 22 * scale, 0, {24,207,206,255});
+                    DrawTextEx(names, std::to_string((int)battleExperience).c_str(), Vector2{781, 45} * scale, 25 * scale, 0, {186,255,255,255});
+                    DrawTextEx(names, "FOUND", Vector2{125, 396}*scale, 23*scale ,0, {24,207,206,255});
+
+                    for (int i = 0, j = 0; i < 6; i++){
+                        if(team[i] != NULL){
+                            DrawExpPortrait(j, i);
+                            j++;
+                        }
+                    }
+
+                    ExperienceFade -= 10;
+                    if(ExperienceFade < 0) {ExperienceFade = 0; state = 3;}
+                    FillWindow((Color){0,0,0}, ExperienceFade);
+                }
+
+                else if (state == 3) {
+                    DrawTextureEx(BattleResults, Vector2{0,0}, 0, scale, WHITE);
+                    DrawTextEx(names, "EXP", Vector2{649, 48}*scale, 22 * scale, 0, {24,207,206,255});
+                    DrawTextEx(names, std::to_string((int)battleExperience).c_str(), Vector2{781, 45} * scale, 25 * scale, 0, {186,255,255,255});
+                    DrawTextEx(names, "FOUND", Vector2{125, 396}*scale, 23*scale ,0, {24,207,206,255});
+
+                    for (int i = 0, j = 0; i < 6; i++){
+                        if(team[i] != NULL){
+                            DrawExpPortrait(j, i);
+                            j++;
+                        }
+                    }
+
+                    if(IsKeyPressed(KEY_ENTER)){
+                        state = 4;
+                        int alive = 0;
+                        for(int i = 0; i < 6; i++){
+                            if (team[i] != NULL && team[i]->isAlive()){
+                                alive++;
+                            }
+                        }
+                        
+                        for(int i = 0; i < 6; i++){
+                            if (team[i] != NULL && team[i]->isAlive()){
+                                team[i]->GainExp(round(battleExperience/alive));
+                            }
+                        }
+                    }
+                }
+
+                else if (state == 4) {
+                    DrawTextureEx(BattleResults, Vector2{0,0}, 0, scale, WHITE);
+                    DrawTextEx(names, "EXP", Vector2{649, 48}*scale, 22 * scale, 0, {24,207,206,255});
+                    DrawTextEx(names, std::to_string((int)battleExperience).c_str(), Vector2{781, 45} * scale, 25 * scale, 0, {186,255,255,255});
+                    DrawTextEx(names, "FOUND", Vector2{125, 396}*scale, 23*scale ,0, {24,207,206,255});
+
+                    for (int i = 0, j = 0; i < 6; i++){
+                        if(team[i] != NULL){
+                            DrawExpPortrait(j, i);
+                            j++;
+                        }
+                    }
+
+                    if(IsKeyPressed(KEY_ENTER)){
+                        state = 5;
+                    }
+                }
+
+                else if (state == 5) {
+                    ExperienceFade += 10;
+                    if(ExperienceFade > 255) {ExperienceFade = 255; state = 6;}
+                    FillWindow((Color){0,0,0}, ExperienceFade);
+                }
+
+                else if (state == 6) {
+                    camera.fovy = 65.0f;
+                    PlaySound(sound);
+                    Vector2 currentDir = {(float)cos(currentAngle), (float)sin(currentAngle)};
+                    camera.target = gameToWorld(gamePos + currentDir);
+                    camera.position = gameToWorld(gamePos);
+
+                    ClearBackground(SKY);
+
+                    BeginMode3D(camera);
+                        DrawModel(model, mapPosition, 1.0f, {(unsigned char)r, (unsigned char)g, (unsigned char)b, 255}); // Dibujar mapa del laberinto
+                    EndMode3D();
+                    DrawClock();
+
+                    ExperienceFade -= 10;
+                    if(ExperienceFade < 0) {ExperienceFade = 0; state = 7;}
+                    FillWindow((Color){0,0,0}, ExperienceFade);
+                }
+
+                else if (state == 7) {
+                    currentState = MAZE;
+                    state = 1;
+                }
+
+                //DrawText(TextFormat("STACK: (%d)", orderStack.size()), 10, 30, 20, DARKGRAY);
+                //DrawText(TextFormat("QUEUE: (%d)", order.size()), 10, 50, 20, DARKGRAY);
+                EndDrawing();
+                break;
+            }
 
             case MENU: {
+                BeginDrawing();
+                    ClearBackground(RAYWHITE);
+                    switch(menuAction) {
+                        case 0: DrawCityUI(&currentState); break;
+                        case 1: DrawRefugeUI(); break;
+                        case 2: DrawBazarUI(); break;
+                        case 3: DrawBarUI(); break;
+                        case 4: DrawChamberUI(); break;
+                        case 5: DrawHallUI(); break;
+                        case 6: DrawPostUI(); break;
 
+                    }
+                EndDrawing();
                 break;
             }
         }
@@ -517,8 +571,8 @@ int main(void)
     // Desinicialización
     UnloadImageColors(mapPixels);
     UnloadTexture(cubicmap);
-    UnloadTexture(texture);
     UnloadModel(model);
+    UnloadResources();
 
     CloseWindow();
 
